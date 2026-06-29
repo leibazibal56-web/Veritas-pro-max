@@ -1,4 +1,6 @@
-beautifulsoup4
-requests
-google-genai
 streamlit
+requests
+beautifulsoup4
+google-genai
+pillow
+fpdf
