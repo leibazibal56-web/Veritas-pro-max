@@ -4,40 +4,48 @@ import json
 import re
 from fpdf import FPDF
 
+# Configurare pagină
 st.set_page_config(page_title="Veritas Pro Max", layout="centered")
+
+# Preluare cheie din Secrets
 API_KEY = st.secrets.get("GEMINI_API_KEY")
 
-st.title("🔍 Veritas Pro Max v3.9")
+st.title("🔍 Veritas Pro Max v4.0")
 
 if not API_KEY:
-    st.error("Lipsă API Key.")
+    st.error("Lipsă API Key. Configurează 'GEMINI_API_KEY' în Secrets.")
 else:
     input_data = st.text_input("Introdu URL sau Text:")
     
     if st.button("Analizează"):
-        with st.status("Analiză în curs...", expanded=True):
-            try:
-                # URL-ul complet pentru versiunea V1 (nu V1BETA)
-                url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
-                
-                payload = {
-                    "contents": [{"parts": [{"text": f"Analizează veridicitatea: {input_data}. Răspunde în format JSON cu 'verdict' și 'sumar'."}]}]
-                }
-                
-                response = requests.post(url, json=payload)
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    text = result['candidates'][0]['content']['parts'][0]['text']
+        if not input_data:
+            st.warning("Te rog introdu un text sau URL.")
+        else:
+            with st.status("Analiză în curs cu Gemini...", expanded=True):
+                try:
+                    # Endpoint-ul corect pentru modelele 1.5
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
                     
-                    # Parsare
-                    match = re.search(r'\{.*\}', text, re.DOTALL)
-                    data = json.loads(match.group(0)) if match else {"verdict": "Eroare", "sumar": text}
+                    payload = {
+                        "contents": [{
+                            "parts": [{"text": f"Analizează veridicitatea acestui conținut: {input_data}. Răspunde strict în format JSON cu cheile 'verdict' (Adevărat/Fals/Înșelător) și 'sumar'."}]
+                        }]
+                    }
                     
-                    st.subheader(f"Verdict: {data.get('verdict')}")
-                    st.write(data.get('sumar'))
-                else:
-                    st.error(f"Eroare API {response.status_code}: {response.text}")
+                    response = requests.post(url, json=payload)
                     
-            except Exception as e:
-                st.error(f"Eroare: {str(e)}")
+                    if response.status_code == 200:
+                        result = response.json()
+                        raw_text = result['candidates'][0]['content']['parts'][0]['text']
+                        
+                        # Parsare JSON
+                        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+                        data = json.loads(match.group(0)) if match else {"verdict": "Eroare", "sumar": raw_text}
+                        
+                        st.subheader(f"Verdict: {data.get('verdict')}")
+                        st.write(data.get('sumar'))
+                    else:
+                        st.error(f"Eroare API {response.status_code}: {response.text}")
+                        
+                except Exception as e:
+                    st.error(f"Eroare procesare: {str(e)}")
