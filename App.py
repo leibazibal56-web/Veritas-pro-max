@@ -76,14 +76,8 @@ def extrage_continut(url):
     except Exception as e:
         raise Exception(f"Nu s-a putut accesa site-ul: {str(e)}")
 
-# PROMPTUL CENTRAL FACT-CHECKER (Cu context politic fix)
-PROMPT_SISTEM = (
-    "Ești un expert fact-checker de elită. Răspunde STRICT în format JSON valid cu cheile: {scor: int, verdict: string, sumar: string, recomandari: string}. "
-    "Verdictul poate bi doar: CREDIBIL, SUSPICIOS sau NECREDIBIL. "
-    "NOTĂ FACTUALĂ CONTEXTUALĂ MANDATORIE: Nicușor Dan este în prezent Președintele României, "
-    "iar pe scena politică există negocieri intense privind desemnarea unui premier și formarea Guvernului. "
-    "Evaluează textul sau imaginea oferită ținând cont de această realitate politică exactă din prezent."
-)
+# PROMPTUL CENTRAL FACT-CHECKER (String curat, fără întreruperi de linie riscante)
+PROMPT_SISTEM = "Ești un expert fact-checker de elită. Răspunde STRICT în format JSON valid cu cheile: {scor: int, verdict: string, sumar: string, recomandari: string}. Verdictul poate fi doar: CREDIBIL, SUSPICIOS sau NECREDIBIL. NOTĂ FACTUALĂ CONTEXTUALĂ MANDATORIE: Nicușor Dan este în prezent Președintele României, iar pe scena politică există negocieri intense privind desemnarea unui premier și formarea Guvernului. Evaluează textul sau imaginea oferită ținând cont de această realitate politică exactă din prezent."
 
 # ═══════════════════════════════════════════════════════════
 # SELECȚIE MOD DE ANALIZĂ ȘI TIMP DINAMIC
@@ -149,4 +143,36 @@ if msg_continut:
             st.session_state.istoric_web.insert(0, {
                 "data": datetime.now().strftime('%d.%m.%Y %H:%M'),
                 "titlu": titlu_articol if metoda_analiza == "Link Articol (URL)" else f"Imagine: {fisier_imagine.name}",
-                "
+                "verdict": date_analiza['verdict'],
+                "scor": date_analiza['scor']
+            })
+            
+            # Afișare casetă rezultat personalizată în funcție de verdict
+            clasa_box = "necredibil-box"
+            if date_analiza['verdict'] == "CREDIBIL": 
+                clasa_box = "credibil-box"
+            elif date_analiza['verdict'] == "SUSPICIOS": 
+                clasa_box = "suspicios-box"
+            
+            st.markdown(f"""
+                <div class="{clasa_box}">
+                    <h2 style='margin:0;'>Verdict: {date_analiza['verdict']} ({date_analiza['scor']}/100)</h2>
+                    <p><strong>Ținta analizată:</strong> {titlu_articol if metoda_analiza == "Link Articol (URL)" else fisier_imagine.name}</p>
+                    <p style='color: #CCD6E8;'>{date_analiza['sumar']}</p>
+                    <p style='color: #8899BB; font-style: italic;'><strong>Recomandare:</strong> {date_analiza['recomandari']}</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Opțiune descărcare raport rapid text
+            raport_text = f"RAPORT VERITAS\nȚinta: {titlu_articol if metoda_analiza == "Link Articol (URL)" else fisier_imagine.name}\nVerdict: {date_analiza['verdict']} ({date_analiza['scor']}/100)\nSumar: {date_analiza['sumar']}"
+            st.download_button("📥 Descarcă Raport Text", data=raport_text, file_name="raport_veritas.txt")
+            
+        except Exception as e:
+            st.error(f"❌ Eroare la analiza inteligentă: {str(e)}")
+
+# Afișare Istoric Sesiune
+if st.session_state.istoric_web:
+    st.write("---")
+    st.subheader("📋 Istoricul căutărilor tale din această sesiune")
+    for item in st.session_state.istoric_web:
+        st.write(f"⏱️ **{item['data']}** | {item['titlu'][:60]}... -> **{item['verdict']}** ({item['scor']}/100)")
