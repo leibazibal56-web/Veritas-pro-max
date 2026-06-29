@@ -1,38 +1,35 @@
 import streamlit as st
+import google.generativeai as genai
 import json
 import re
-from datetime import datetime
-from google import genai
 from fpdf import FPDF
 
-# ═══════════════════════════════════════════════════════════
-# UI și Logică
-# ═══════════════════════════════════════════════════════════
+# Configurare
 st.set_page_config(page_title="Veritas Pro Max", layout="centered")
-API_KEY = st.secrets.get("GEMINI_API_KEY")
+api_key = st.secrets.get("GEMINI_API_KEY")
 
-st.title("🔍 Veritas Pro Max v3.6")
+st.title("🔍 Veritas Pro Max v3.7")
 
-if not API_KEY:
+if not api_key:
     st.error("Lipsă API Key. Configurează 'GEMINI_API_KEY' în Secrets.")
 else:
+    # Configurare generativă
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
     input_data = st.text_input("Introdu URL sau Text:")
     if st.button("Analizează"):
         with st.status("Analiză în curs...", expanded=True):
             try:
-                # Inițializare client
-                client = genai.Client(api_key=API_KEY)
-                
-                # Apel direct pe modelul de bază
-                response = client.models.generate_content(
-                    model='gemini-1.5-flash',
-                    contents=f"Analizează veridicitatea: {input_data}. Răspunde în format JSON cu 'verdict' și 'sumar'."
+                # Generare conținut
+                response = model.generate_content(
+                    f"Analizează veridicitatea: {input_data}. Răspunde în format JSON cu cheile 'verdict' și 'sumar'."
                 )
                 
                 # Parsare
-                raw_text = response.text
-                match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-                data = json.loads(match.group(0)) if match else json.loads(raw_text)
+                text = response.text
+                match = re.search(r'\{.*\}', text, re.DOTALL)
+                data = json.loads(match.group(0)) if match else {"verdict": "Eroare", "sumar": text}
                 
                 st.subheader(f"Verdict: {data.get('verdict')}")
                 st.write(data.get('sumar'))
