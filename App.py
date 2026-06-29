@@ -94,11 +94,10 @@ if st.button("Analizează Articolul"):
                     # Conexiune Gemini securizată
                     client = genai.Client(api_key=user_api_key)
                     
-                    # I-am dat contextul direct în text pentru a evita erorile de autentificare cu Google Search
                     prompt = (
                         "Ești un expert fact-checker. Răspunde STRICT în format JSON valid cu cheile: {scor: int, verdict: string, sumar: string, recomandari: string}. "
                         "Verdictul poate fi doar: CREDIBIL, SUSPICIOS sau NECREDIBIL. "
-                        "NOTĂ FACTUALĂ IMPORTANTĂ PENTRU REALIATEA DIN 2026: Nicușor Dan este în prezent Președintele României, "
+                        "NOTĂ FACTUALĂ IMPORTANTĂ PENTRU REALITATEA DIN 2026: Nicușor Dan este în prezent Președintele României, "
                         "iar pe scena politică există dispute privind formarea Guvernului și desemnarea unui nou premier interimar. "
                         "Evaluează textul articolului ținând cont de aceste date absolut reale pentru prezentul nostru."
                     )
@@ -120,10 +119,12 @@ if st.button("Analizează Articolul"):
                         "scor": date_analiza['scor']
                     })
                     
-                    # Afișare casetă rezultat în funcție de verdict
+                    # Afișare casetă rezultat în funcție de verdict (CORECTAT ACUM)
                     clasa_box = "necredibil-box"
-                    if date_analiza['verbit'] == "CREDIBIL" or date_analiza['verdict'] == "CREDIBIL": clasa_box = "credibil-box"
-                    elif date_analiza['verdict'] == "SUSPICIOS": clasa_box = "suspicios-box"
+                    if date_analiza['verdict'] == "CREDIBIL": 
+                        clasa_box = "credibil-box"
+                    elif date_analiza['verdict'] == "SUSPICIOS": 
+                        clasa_box = "suspicios-box"
                     
                     st.markdown(f"""
                         <div class="{clasa_box}">
