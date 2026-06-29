@@ -29,7 +29,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🔍 VERITAS PRO MAX")
-st.caption("Platformă inteligentă pentru analiza credibilității știrilor în timp real")
+st.caption("Platformă inteligentă pentru analiza credibilității știrilor în timp real cu verificare live (2026)")
 
 # Initializează istoricul în sesiunea browserului
 if "istoric_web" not in st.session_state:
@@ -47,7 +47,7 @@ else:
 st.sidebar.markdown("""
 ---
 ### Despre Veritas Pro Max
-Această platformă extrage textul din linkul trimis și folosește inteligența artificială **Gemini 2.5 Flash** pentru a evalua dacă textul conține dezinformări, titluri de tip Clickbait sau surse neclare.
+Această platformă extrage textul din linkul trimis și folosește inteligența artificială **Gemini 2.5 Flash** integrată cu **Google Search Live** pentru a verifica faptele direct în peisajul informațional contemporan din 2026.
 """)
 
 # ═══════════════════════════════════════════════════════════
@@ -87,19 +87,30 @@ if st.button("Analizează Articolul"):
         if not este_valid:
             st.error(rezultat_url)
         else:
-            with st.spinner("⏳ Veritas AI analizează conținutul site-ului..."):
+            with st.spinner("⏳ Veritas AI interoghează internetul și analizează contextul curent din 2026..."):
                 try:
                     titlu_articol, text_articol = extrage_continut(rezultat_url)
                     
-                    # Conexiune Gemini cu cheia automată securizată
+                    # Conexiune Gemini cu instrumente de Grounding active
                     client = genai.Client(api_key=user_api_key)
-                    prompt = "Ești un expert fact-checker. Răspunde STRICT în format JSON valid cu cheile: {scor: int, verdict: string, sumar: string, recomandari: string}. Verdictul poate fi doar: CREDIBIL, SUSPICIOS sau NECREDIBIL."
-                    msg = f"Analizează textul următor:\nTitlu: {titlu_articol}\nConținut: {text_articol[:2000]}"
+                    prompt = (
+                        "Ești un expert în fact-checking de înaltă precizie. "
+                        "Răspunde STRICT în format JSON valid cu cheile: {scor: int, verdict: string, sumar: string, recomandari: string}. "
+                        "Verdictul poate fi doar: CREDIBIL, SUSPICIOS sau NECREDIBIL. "
+                        "Suntem în anul 2026. Folosește în mod obligatoriu unealta Google Search inclusă pentru a verifica realitatea politică actuală, "
+                        "inclusiv funcțiile de stat curente (de exemplu, structura Guvernului și Președinția României), evitând informațiile învechite."
+                    )
+                    msg = f"Analizează textul următor în contextul prezentului: \nTitlu: {titlu_articol}\nConținut: {text_articol[:2000]}"
                     
+                    # Activarea Groundingului prin Google Search live
                     response = client.models.generate_content(
                         model='gemini-2.5-flash',
                         contents=msg,
-                        config=types.GenerateContentConfig(system_instruction=prompt, response_mime_type="application/json")
+                        config=types.GenerateContentConfig(
+                            system_instruction=prompt, 
+                            response_mime_type="application/json",
+                            tools=[types.Tool(google_search=types.GoogleSearch())]
+                        )
                     )
                     
                     date_analiza = json.loads(response.text)
