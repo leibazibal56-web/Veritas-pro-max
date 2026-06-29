@@ -6,9 +6,10 @@ import time
 from urllib.parse import urlparse
 from datetime import datetime
 from bs4 import BeautifulSoup
-from google import genai
-from google.genai import types
+import anthropic
+import base64
 from PIL import Image
+import io
 
 # ═══════════════════════════════════════════════════════════
 # CONFIGURARE PAGINĂ STREAMLIT
@@ -350,17 +351,17 @@ if "istoric_web" not in st.session_state:
 # ═══════════════════════════════════════════════════════════
 # SIDEBAR
 # ═══════════════════════════════════════════════════════════
-if "GEMINI_API_KEY" in st.secrets:
-    user_api_key = st.secrets["GEMINI_API_KEY"]
+if "ANTHROPIC_API_KEY" in st.secrets:
+    user_api_key = st.secrets["ANTHROPIC_API_KEY"]
 else:
     st.sidebar.header("🔑 API Key")
-    user_api_key = st.sidebar.text_input("Cheie API Gemini:", type="password", value="")
+    user_api_key = st.sidebar.text_input("Cheie API Anthropic (Claude):", type="password", value="")
 
 st.sidebar.markdown("""
 ---
 **Veritas Pro Max v3.0**
 
-Motor: `gemini-2.5-flash`  
+Motor: `claude-sonnet-4-6`  
 Analiză: **multi-domeniu** — politic, juridic, științific, financiar, media  
 Extracție: rezistentă la anti-bot, fallback multi-strategie
 
@@ -708,30 +709,41 @@ else:
 # ═══════════════════════════════════════════════════════════
 if msg_continut:
     if not user_api_key:
-        st.error("⚠️ Adaugă cheia API Gemini în sidebar pentru a rula analiza.")
+        st.error("⚠️ Adaugă cheia API Anthropic în sidebar pentru a rula analiza.")
     else:
         try:
-            client = genai.Client(api_key=user_api_key)
+            client = anthropic.Anthropic(api_key=user_api_key)
 
-            continut_apel = [msg_continut]
+            # Construim conținutul mesajului — text + imagine dacă există
+            continut_mesaj = []
             if imagine_incarcata and "Imagine" in metoda_analiza:
-                continut_apel.append(imagine_incarcata)
+                # Convertim PIL Image în base64 pentru API-ul Anthropic
+                buf = io.BytesIO()
+                fmt = imagine_incarcata.format or "PNG"
+                imagine_incarcata.save(buf, format=fmt)
+                img_b64 = base64.standard_b64encode(buf.getvalue()).decode("utf-8")
+                media_type_map = {"PNG": "image/png", "JPEG": "image/jpeg", "JPG": "image/jpeg", "WEBP": "image/webp"}
+                media_type = media_type_map.get(fmt.upper(), "image/png")
+                continut_mesaj.append({
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": media_type, "data": img_b64}
+                })
+            continut_mesaj.append({"type": "text", "text": msg_continut})
 
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=continut_apel,
-                config=types.GenerateContentConfig(
-                    system_instruction=PROMPT_SISTEM,
-                    response_mime_type="application/json"
-                )
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=2048,
+                system=PROMPT_SISTEM,
+                messages=[{"role": "user", "content": continut_mesaj}]
             )
 
             # Parse robust — curăță eventuale backticks reziduale
-            raw_text = response.text.strip()
+            raw_text = response.content[0].text.strip()
             if raw_text.startswith("```"):
                 raw_text = raw_text.split("```")[1]
                 if raw_text.startswith("json"):
                     raw_text = raw_text[4:]
+                raw_text = raw_text.rstrip("`").strip()
             date_analiza = json.loads(raw_text)
 
             # Salvare istoric
@@ -776,7 +788,7 @@ if msg_continut:
         except json.JSONDecodeError as e:
             st.error(f"❌ Răspunsul AI nu a putut fi parsat ca JSON: {str(e)}")
             with st.expander("Răspuns brut (debug)"):
-                st.code(response.text if 'response' in dir() else "Niciun răspuns", language="text")
+                st.code(response.content[0].text if 'response' in dir() else "Niciun răspuns", language="text")
         except Exception as e:
             st.error(f"❌ Eroare la analiza Gemini: {str(e)}")
 
