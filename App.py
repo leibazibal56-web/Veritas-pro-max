@@ -36,15 +36,18 @@ if "istoric_web" not in st.session_state:
     st.session_state.istoric_web = []
 
 # ═══════════════════════════════════════════════════════════
-# ZONE DE INTRODUCERE DATE (SIDEBAR) - CHEIA ESTE LĂSATĂ GOALĂ
+# MODIFICARE LINIA 40: VERIFICARE AUTOMATĂ ÎN STREAMLIT SECRETS
 # ═══════════════════════════════════════════════════════════
-st.sidebar.header("🔑 Configurare Securitate")
-user_api_key = st.sidebar.text_input("Introdu Cheia API Gemini:", type="password", value="")
+if "GEMINI_API_KEY" in st.secrets:
+    user_api_key = st.secrets["GEMINI_API_KEY"]
+else:
+    st.sidebar.header("🔑 Configurare Securitate")
+    user_api_key = st.sidebar.text_input("Introdu Cheia API Gemini:", type="password", value="")
 
 st.sidebar.markdown("""
 ---
-### Cum funcționează?
-Veritas extrage textul din linkul trimis și folosește inteligența artificială **Gemini 2.5 Flash** pentru a evalua dacă textul conține dezinformări, titluri de tip Clickbait sau surse neclare.
+### Despre Veritas Pro Max
+Această platformă extrage textul din linkul trimis și folosește inteligența artificială **Gemini 2.5 Flash** pentru a evalua dacă textul conține dezinformări, titluri de tip Clickbait sau surse neclare.
 """)
 
 # ═══════════════════════════════════════════════════════════
@@ -78,7 +81,7 @@ url_tinta = st.text_input("Introdu URL-ul articolului pe care vrei să îl verif
 
 if st.button("Analizează Articolul"):
     if not user_api_key:
-        st.error("⚠️ Te rugăm să introduci o cheie API validă în bara din stânga!")
+        st.error("⚠️ Aplicația nu este configurată! Introduceți cheia API în bara laterală sau în setările Secrets.")
     else:
         este_valid, rezultat_url = valideaza_url(url_tinta)
         if not este_valid:
@@ -88,7 +91,7 @@ if st.button("Analizează Articolul"):
                 try:
                     titlu_articol, text_articol = extrage_continut(rezultat_url)
                     
-                    # Conexiune Gemini cu cheia aleasă de utilizator
+                    # Conexiune Gemini cu cheia automată
                     client = genai.Client(api_key=user_api_key)
                     prompt = "Ești un expert fact-checker. Răspunde STRICT în format JSON valid cu cheile: {scor: int, verdict: string, sumar: string, recomandari: string}. Verdictul poate fi doar: CREDIBIL, SUSPICIOS sau NECREDIBIL."
                     msg = f"Analizează textul următor:\nTitlu: {titlu_articol}\nConținut: {text_articol[:2000]}"
@@ -106,33 +109,4 @@ if st.button("Analizează Articolul"):
                         "data": datetime.now().strftime('%d.%m.%Y %H:%M'),
                         "titlu": titlu_articol,
                         "verdict": date_analiza['verdict'],
-                        "scor": date_analiza['scor']
-                    })
-                    
-                    # Afișare casetă rezultat în funcție de verdict
-                    clasa_box = "necredibil-box"
-                    if date_analiza['verdict'] == "CREDIBIL": clasa_box = "credibil-box"
-                    elif date_analiza['verdict'] == "SUSPICIOS": clasa_box = "suspicios-box"
-                    
-                    st.markdown(f"""
-                        <div class="{clasa_box}">
-                            <h2 style='margin:0;'>Verdict: {date_analiza['verdict']} ({date_analiza['scor']}/100)</h2>
-                            <p><strong>Titlu detectat:</strong> {titlu_articol}</p>
-                            <p style='color: #CCD6E8;'>{date_analiza['sumar']}</p>
-                            <p style='color: #8899BB; font-style: italic;'><strong>Recomandare:</strong> {date_analiza['recomandari']}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Opțiune descărcare raport rapid text
-                    raport_text = f"RAPORT VERITAS\nURL: {rezultat_url}\nVerdict: {date_analiza['verdict']} ({date_analiza['scor']}/100)\nSumar: {date_analiza['sumar']}"
-                    st.download_button("📥 Descarcă Raport Text", data=raport_text, file_name="raport_veritas.txt")
-                    
-                except Exception as e:
-                    st.error(f"❌ A apărut o eroare la analiză: {str(e)}")
-
-# Afișare Istoric Sesiune în partea de jos
-if st.session_state.istoric_web:
-    st.write("---")
-    st.subheader("📋 Istoricul căutărilor tale din această sesiune")
-    for item in st.session_state.istoric_web:
-        st.write(f"⏱️ **{item['data']}** | {item['titlu'][:60]}... -> **{item['verdict']}** ({item['scor']}/100)")
+                        "scor": date_analiza
