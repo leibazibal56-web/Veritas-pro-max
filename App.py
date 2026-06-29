@@ -9,7 +9,7 @@ from fpdf import FPDF
 # ═══════════════════════════════════════════════════════════
 # CONFIGURARE ȘI PERSISTENȚĂ
 # ═══════════════════════════════════════════════════════════
-# Citim cheia din Secrets. Dacă nu există, va returna o eroare vizibilă.
+# Citim cheia din Secrets.
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
 except:
@@ -32,9 +32,13 @@ def genereaza_pdf(data, titlu):
     return pdf.output(dest='S').encode('latin-1')
 
 def parse_json_safe(raw_text):
+    # Caută conținutul JSON în text, chiar dacă API-ul mai adaugă text informativ
     match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-    if match: return json.loads(match.group(0))
-    raise ValueError("Eroare parsare JSON.")
+    if match: 
+        return json.loads(match.group(0))
+    else:
+        # Încearcă să parșezi tot textul dacă nu găsește blocul { }
+        return json.loads(raw_text)
 
 # ═══════════════════════════════════════════════════════════
 # UI
@@ -42,35 +46,37 @@ def parse_json_safe(raw_text):
 st.set_page_config(page_title="Veritas Pro Max", layout="centered")
 st.markdown("<style>.stApp { background: #080D1A; color: #C8D8F0; }</style>", unsafe_allow_html=True)
 
-st.title("🔍 Veritas Pro Max v3.4")
+st.title("🔍 Veritas Pro Max v3.5")
 
 if not API_KEY:
-    st.error("API Key negăsit. Verifică secțiunea Secrets din Streamlit Cloud (Format: GEMINI_API_KEY = 'AIza...')")
+    st.error("Eroare: Cheia API nu a fost detectată. Verifică secțiunea 'Secrets' din dashboard-ul Streamlit.")
 else:
-    metoda = st.radio("Metodă analiză:", ["URL", "Text Simplu"])
-    input_data = st.text_input("Introdu URL sau Text:")
+    input_data = st.text_input("Introdu URL sau Text de analizat:")
 
     if st.button("Analizează"):
         if not input_data:
-            st.warning("Te rog să introduci ceva de analizat.")
+            st.warning("Te rog să introduci un URL sau un text.")
         else:
-            with st.status("Analiză în curs...", expanded=True) as status:
+            with st.status("Analiză în curs cu Gemini...", expanded=True) as status:
                 try:
                     client = genai.Client(api_key=API_KEY)
-                    # Folosim gemini-1.5-flash pentru stabilitate maximă
+                    
+                    # Utilizăm modelul stabil 1.5-flash-002
                     response = client.models.generate_content(
-                        model='gemini-1.5-flash',
-                        contents=f"Analizează următorul conținut pentru dezinformare. Răspunde strict în format JSON cu cheile 'verdict' și 'sumar': {input_data}",
+                        model='gemini-1.5-flash-002',
+                        contents=f"Analizează următorul conținut și verifică veridicitatea. Răspunde strict în format JSON cu cheile 'verdict' (ex: Adevărat/Fals/Înșelător) și 'sumar': {input_data}",
                         config=types.GenerateContentConfig(response_mime_type="application/json")
                     )
+                    
                     data = parse_json_safe(response.text)
                     
                     st.markdown(f"### Verdict: {data.get('verdict')}")
                     st.write(data.get('sumar'))
                     
-                    pdf_bytes = genereaza_pdf(data, "Raport Veritas")
-                    st.download_button("📥 Descarcă PDF", pdf_bytes, "raport.pdf", "application/pdf")
-                    status.update(label="Analiză finalizată!", state="complete")
+                    pdf_bytes = genereaza_pdf(data, input_data[:30] + "...")
+                    st.download_button("📥 Descarcă Raport PDF", pdf_bytes, "raport_veritas.pdf", "application/pdf")
+                    
+                    status.update(label="Analiză finalizată cu succes!", state="complete")
                     
                 except Exception as e:
-                    st.error(f"Eroare procesare: {e}")
+                    st.error(f"Eroare procesare: {str(e)}")
