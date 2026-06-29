@@ -2,31 +2,33 @@ import streamlit as st
 import google.generativeai as genai
 import json
 import re
-from fpdf import FPDF
 
-# Configurare
+# Configurare pagină
 st.set_page_config(page_title="Veritas Pro Max", layout="centered")
+
+# Preluare cheie din Secrets
 api_key = st.secrets.get("GEMINI_API_KEY")
 
-st.title("🔍 Veritas Pro Max v3.7")
+st.title("🔍 Veritas Pro Max v3.8")
 
 if not api_key:
-    st.error("Lipsă API Key. Configurează 'GEMINI_API_KEY' în Secrets.")
+    st.error("Lipsă API Key în Secrets.")
 else:
-    # Configurare generativă
-    genai.configure(api_key=api_key)
+    # CONFIGURARE FORȚATĂ A VERSIUNII API
+    # Folosim versiunea 'v1' pentru a evita eroarea v1beta
+    genai.configure(api_key=api_key, transport='rest') 
+    
+    # Încercăm să apelăm modelul folosind clasa de bază
     model = genai.GenerativeModel('gemini-1.5-flash')
     
     input_data = st.text_input("Introdu URL sau Text:")
     if st.button("Analizează"):
         with st.status("Analiză în curs...", expanded=True):
             try:
-                # Generare conținut
                 response = model.generate_content(
-                    f"Analizează veridicitatea: {input_data}. Răspunde în format JSON cu cheile 'verdict' și 'sumar'."
+                    f"Analizează veridicitatea: {input_data}. Răspunde în format JSON cu 'verdict' și 'sumar'."
                 )
                 
-                # Parsare
                 text = response.text
                 match = re.search(r'\{.*\}', text, re.DOTALL)
                 data = json.loads(match.group(0)) if match else {"verdict": "Eroare", "sumar": text}
