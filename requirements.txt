@@ -1,3 +1,5 @@
 streamlit
 requests
-fpdf
+beautifulsoup4
+google-genai
+Pillow
