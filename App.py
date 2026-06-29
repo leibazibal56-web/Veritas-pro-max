@@ -4,19 +4,19 @@ import requests
 from datetime import datetime
 
 # ═══════════════════════════════════════════════════════════
-# CONFIGURARE ȘI UI
+# CONFIGURARE ȘI INTERFAȚĂ
 # ═══════════════════════════════════════════════════════════
 st.set_page_config(page_title="Veritas Pro Max", page_icon="🔍", layout="centered")
+st.title("🔍 VERITAS PRO MAX v5.0")
 
-st.title("🔍 VERITAS PRO MAX v4.7")
 API_KEY = st.secrets.get("GEMINI_API_KEY")
 
 # ═══════════════════════════════════════════════════════════
-# LOGICA API
+# LOGICĂ API (Cea mai stabilă metodă)
 # ═══════════════════════════════════════════════════════════
 def apeleaza_gemini(continut_text):
-    # Endpoint v1 stabil, model 1.5-flash-002
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-002:generateContent?key={API_KEY}"
+    # Folosim calea generică pentru modelul 1.5-flash
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     
     payload = {
         "contents": [{"parts": [{"text": continut_text}]}]
@@ -24,36 +24,36 @@ def apeleaza_gemini(continut_text):
     
     response = requests.post(url, json=payload)
     
+    # Gestionare erori
     if response.status_code == 429:
         raise Exception("429_LIMIT")
-    
     if response.status_code != 200:
-        raise Exception(f"Eroare API {response.status_code}: {response.text}")
+        raise Exception(f"Eroare {response.status_code}: {response.text}")
         
-    # Extragere și curățare text pentru JSON
+    # Extragere text
     raw_text = response.json()['candidates'][0]['content']['parts'][0]['text']
+    # Curățare format pentru a asigura JSON pur
     clean_text = raw_text.replace("```json", "").replace("```", "").strip()
-    
     return json.loads(clean_text)
 
 # ═══════════════════════════════════════════════════════════
-# EXECUȚIE
+# EXECUȚIE ȘI UI
 # ═══════════════════════════════════════════════════════════
-input_user = st.text_input("Introdu text sau URL pentru analiză:")
+input_user = st.text_input("Introdu URL sau text pentru analiză:")
 
 if st.button("Analizează"):
     if not API_KEY:
-        st.error("Configurează cheia API în Secrets (GEMINI_API_KEY).")
+        st.error("Lipsă cheie API în Secrets.")
     elif not input_user:
-        st.warning("Introdu date pentru analiză.")
+        st.warning("Introdu ceva de verificat!")
     else:
-        with st.status("Analiză în curs...", expanded=True):
+        with st.status("Analiză Veritas în curs...", expanded=True):
             try:
-                # Prompt directiv pentru JSON
+                # Prompt instructiv pentru structură
                 prompt = (f"Data: {datetime.now().strftime('%d.%m.%Y')}. "
-                          f"Analizează veridicitatea conținutului: {input_user}. "
-                          "Răspunde strict în format JSON, fără introduceri, "
-                          "folosind cheile: 'scor' (int), 'verdict' (string), 'sumar' (string), 'recomandari' (string).")
+                          f"Verifică: {input_user}. "
+                          "Răspunde STRICT în format JSON (fără alte texte): "
+                          "{'scor': int, 'verdict': string, 'sumar': string, 'recomandari': string}")
                 
                 rezultat = apeleaza_gemini(prompt)
                 
@@ -63,6 +63,6 @@ if st.button("Analizează"):
                 
             except Exception as e:
                 if "429_LIMIT" in str(e):
-                    st.error("⚠️ Limita gratuită atinsă. Încearcă peste 1 minut.")
+                    st.error("⚠️ Limită atinsă. Așteaptă 1 minut.")
                 else:
-                    st.error(f"Eroare procesare: {str(e)}")
+                    st.error(f"Eroare: {str(e)}")
